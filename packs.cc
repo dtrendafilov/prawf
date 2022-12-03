@@ -1,4 +1,5 @@
 #include <cstdio>
+#include <array>
 
 template <int... Ns>
 struct Ints
@@ -17,7 +18,7 @@ struct Array1;
 template <int N, int... Ns>
 struct Array1<N, Ints<Ns...>>
 {
-    static constexpr S array[sizeof...(Ns)] = {
+    static constexpr std::array<S, sizeof...(Ns)> array = {
         S{N, Ns}...
     };
 };
@@ -28,7 +29,7 @@ struct Array;
 template <int... N1s, int... N2s>
 struct Array<Ints<N1s...>, Ints<N2s...>>
 {
-    typedef const S SubArray[sizeof...(N2s)];
+    typedef std::array<S, sizeof...(N2s)> SubArray;
     static constexpr SubArray array[sizeof...(N1s)] = {
         {Array1<N1s, Ints<N2s...>>::array}...
     };
