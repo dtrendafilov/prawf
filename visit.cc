@@ -1,4 +1,5 @@
 #include <variant>
+#include <array>
 
 struct MyVariant
 {
@@ -82,7 +83,6 @@ namespace zz
         return impl::invoke(f, v);
     }
 
-#if 0
     template <typename R, typename F, typename V1, typename T1>
     struct visit_impl_2;
 
@@ -96,8 +96,19 @@ namespace zz
         }
 
         typedef R (*Stub)(F& f, V1& v1, V1& v2);
-        static constexpr Stub stubs[sizeof...(T1s)][sizeof...(T1s)] = {
-            { visit_stub<T1s, T1s>... }
+        typedef std::array<Stub, sizeof...(T1s)> Stubs1d;
+        /* typedef Stub Stubs1d[sizeof...(T1s)]; */
+
+        template <typename T1, typename... T2s>
+        struct stub_helper
+        {
+            static constexpr Stubs1d stubs = {
+                visit_stub<T1, T2s>...
+            };
+        };
+
+        static constexpr Stubs1d stubs[sizeof...(T1s)] = {
+            { stub_helper<T1s, T1s...>::stubs }...
         };
 
         static auto invoke(F& f, V1&v1, V1& v2)
@@ -113,7 +124,48 @@ namespace zz
         typedef visit_impl_2<Result, F, V1, typename variant_types<V1>::value> impl;
         return impl::invoke(f, v1, v2);
     }
-#endif
+
+    template <typename R, typename F, typename V1, typename T1, typename V2, typename T2>
+    struct visit_impl_g;
+
+    template <typename R, typename F, typename V1, typename... T1s, typename V2, typename... T2s>
+    struct visit_impl_g<R, F, V1, variant_types_value<T1s...>, V2, variant_types_value<T2s...>>
+    {
+        template <typename T1, typename T2>
+        static auto visit_stub(F& f, V1& v1, V2& v2)
+        {
+            return f(std::get<T1>(v1), std::get<T2>(v2));
+        }
+
+        typedef R (*Stub)(F& f, V1& v1, V2& v2);
+        typedef std::array<Stub, sizeof...(T2s)> Stubs1d;
+        /* typedef Stub Stubs1d[sizeof...(T1s)]; */
+
+        template <typename T1, typename... T2sh>
+        struct stub_helper
+        {
+            static constexpr Stubs1d stubs = {
+                visit_stub<T1, T2sh>...
+            };
+        };
+
+        static constexpr Stubs1d stubs[sizeof...(T1s)] = {
+            { stub_helper<T1s, T2s...>::stubs }...
+        };
+
+        static auto invoke(F& f, V1&v1, V2& v2)
+        {
+            return (*stubs[v1.index()][v2.index()])(f, v1, v2);
+        }
+    };
+
+    template <typename F, typename V1, typename V2>
+    auto visitg(F f, V1 v1, V2 v2)
+    {
+        typedef decltype(f(std::get<0>(v1), std::get<0>(v2))) Result;
+        typedef visit_impl_g<Result, F, V1, typename variant_types<V1>::value, V2, typename variant_types<V2>::value> impl;
+        return impl::invoke(f, v1, v2);
+    }
 }
 
 struct PrintVisitor
@@ -146,9 +198,10 @@ int main()
     StdV d{3.14};
     zz::visit(PrintVisitor{}, i);
     zz::visit(PrintVisitor{}, d);
-    typedef std::variant<double, float> StdV2;
+    typedef std::variant<double, float, int> StdV2;
     StdV2 f{3.14f};
     /* auto r = zz::visit2(SumVisitor{}, d, i); */
-    /* std::printf("sum %lf\n", r); */
+    auto r = zz::visitg(SumVisitor{}, d, f);
+    std::printf("sum %lf\n", r);
     return 0;
 }
