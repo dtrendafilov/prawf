@@ -1,3 +1,10 @@
+// TODO:
+// 1. instead of using list of types, we can use list of indices and get the
+// types in the stub functions
+// 2. benchmark against std::visit
+// 3. Compare against a swiwct. How does msvc use a switch? Tail recusion
+// optimization?
+
 #include <variant>
 #include <array>
 
