@@ -1,5 +1,6 @@
 #include <cstdio>
 #include <cstdlib>
+// It seems that the annotations are disabled for clang, but clang-cl is OK
 #include <drmemory_annotations.h>
 
 void unaddressable_write(int* p)
