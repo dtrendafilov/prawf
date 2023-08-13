@@ -1,0 +1,14 @@
+cxxflags = -std=c++20 -g3 -Wall -Wextra
+
+rule cxx_single
+    command = clang++ -fsanitize=address $cxxflags $in -o $out
+
+rule cxx_single_cl
+    command = clang-cl /fsanitize=address /EHsc /Zi /Wall $in 
+
+rule run
+    command = ./$in
+
+build heap.exe: cxx_single heap.cpp
+build heap_run: run heap.exe
+
