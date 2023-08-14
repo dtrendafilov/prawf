@@ -5,7 +5,7 @@ rule cxx_single
     command = clang++ $cxxflags -I $drmemory_dir/include $in -o $out
 
 rule cxx_single_cl
-    command = clang-cl /EHsc /Zi /Wall -I $drmemory_dir/include $drmemory_dir/lib64/release/drmemory_annotations.lib $in 
+    command = clang-cl /EHsc /Zi /Wall -I $drmemory_dir/include $in $drmemory_dir/lib64/release/drmemory_annotations.lib
 
 rule run_drmemory
     command = drmemory -visual_studio -batch ./$in
