@@ -330,9 +330,6 @@ struct CreateFixture : celero::TestFixture
 template <typename T>
 using SortedSumFixture = SumFixture<T, true>;
 
-const int SamplesCount = 32;
-const int IterationsCount = 64;
-
 BASELINE_F(Sum, TaggedUnion, SumFixture<uni::PointValue>, SamplesCount, IterationsCount)
 {
     celero::DoNotOptimizeAway(sum(_values));

@@ -1,4 +1,5 @@
 #include "precompiled.hxx"
+#include <numeric>
 
 
 namespace shapes
@@ -13,7 +14,19 @@ struct Point
         x *= factor;
         y *= factor;
     }
+
+    double distance_to(const Point& to) const
+    {
+        const auto dx = to.x - x;
+        const auto dy = to.y - y;
+        return std::sqrt(dx * dx + dy * dy);
+    }
 };
+
+double distance(const Point& lhs, const Point& rhs)
+{
+    return lhs.distance_to(rhs);
+}
 
 
 struct Rectangle
@@ -26,7 +39,14 @@ struct Rectangle
         TopLeft.scale(factor);
         BottomRight.scale(factor);
     }
+
+    double perimeter() const
+    {
+        return 2 * (std::abs(BottomRight.x - TopLeft.x)
+                + std::abs(TopLeft.y - BottomRight.y));
+    }
 };
+
 
 struct Triangle
 {
@@ -40,6 +60,11 @@ struct Triangle
         B.scale(factor);
         C.scale(factor);
     }
+
+    double perimeter() const
+    {
+        return distance(A, B) + distance(B, C) + distance(C, A);
+    }
 };
 
 struct Circle
@@ -51,6 +76,11 @@ struct Circle
     {
         C.scale(factor);
         R *= factor;
+    }
+
+    double perimeter() const
+    {
+        return 2 * 3.1415 * R;
     }
 };
 
@@ -64,6 +94,14 @@ struct ConvexPolygon
         {
             point.scale(factor);
         }
+    }
+
+    double perimeter() const
+    {
+        auto second = begin(Points) + 1;
+        return std::inner_product(second, end(Points), begin(Points),
+                distance(Points.front(), Points.back()),
+                std::plus<double>{}, distance);
     }
 };
 
@@ -233,7 +271,7 @@ namespace uni
 }
 
 template <typename C>
-void create(int count,
+void create(int64_t count,
         const Triangle& t,
         const Rectangle& r,
         const Circle& c,
@@ -249,7 +287,7 @@ void create(int count,
 }
 
 template <typename C>
-void create_sorted(int count,
+void create_sorted(int64_t count,
         const Triangle& t,
         const Rectangle& r,
         const Circle& c,
@@ -330,25 +368,73 @@ void scale(std::vector<uni::Shape>& container, int factor)
     }
 }
 
-
-template <typename T, bool sorted=false>
-struct ScaleFixture : celero::TestFixture
+double perimeter(std::vector<var::Shape>& container)
 {
+    double p = 0;
+    for (auto& v : container)
+    {
+        switch (v.index())
+        {
+            case 0:
+                p += std::get<0>(v).perimeter();
+                break;
+            case 1:
+                p += std::get<1>(v).perimeter();
+                break;
+            case 2:
+                p += std::get<2>(v).perimeter();
+                break;
+            case 3:
+                p += std::get<3>(v).perimeter();
+                break;
+        }
+    }
+    return p;
+}
 
-    std::vector<std::shared_ptr<celero::TestFixture::ExperimentValue>> getExperimentValues() const override
-	{
-		std::vector<std::shared_ptr<celero::TestFixture::ExperimentValue>> problemSpace;
+double perimeter_visit(std::vector<var::Shape>& container)
+{
+    double p = 0;
+    auto visitor = [&p](auto& s)
+    {
+        p += s.perimeter();
+    };
+    for (auto& v : container)
+    {
+        std::visit(visitor, v);
+    }
+    return p;
+}
 
-		// ExperimentValues is part of the base class and allows us to specify
-		// some values to control various test runs to end up building a nice graph.
-		for(int64_t elements = 1024; elements <= int64_t(65536); elements *= 2)
-		{
-			problemSpace.push_back(std::make_shared<celero::TestFixture::ExperimentValue>(elements));
-		}
 
-		return problemSpace;
-	}
+double perimeter(std::vector<uni::Shape>& container)
+{
+    double p = 0;
+    for (auto& v : container)
+    {
+        switch (v._type)
+        {
+            case uni::ShapeType::Triangle:
+                p += v._value._triangle.perimeter();
+                break;
+            case uni::ShapeType::Rectangle:
+                p += v._value._rectangle.perimeter();
+                break;
+            case uni::ShapeType::Circle:
+                p += v._value._circle.perimeter();
+                break;
+            case uni::ShapeType::ConvexPolygon:
+                p += v._value._polygon.perimeter();
+                break;
+        }
+    }
+    return p;
+}
 
+
+template <typename T>
+struct OperationFixture : Fixture<T>
+{
     void setUp(const celero::TestFixture::ExperimentValue* experiment) override
     {
         ConvexPolygon polygon{{Point{0, 0},
@@ -359,52 +445,53 @@ struct ScaleFixture : celero::TestFixture
             Point{24, 66},
             Point{0, 24},
         }};
-        _values.reserve(experiment->Value * 4);
-        if (sorted)
-        {
-            create_sorted(experiment->Value,
-                    Triangle{Point{0, 0}, Point{0, 24}, Point{42, 0}},
-                    Rectangle{Point{24, 42}, Point{42, 24}},
-                    Circle{Point{0, 0}, 42},
-                    polygon,
-                    _values);
-        }
-        else
-        {
-            create(experiment->Value,
-                    Triangle{Point{0, 0}, Point{0, 24}, Point{42, 0}},
-                    Rectangle{Point{24, 42}, Point{42, 24}},
-                    Circle{Point{0, 0}, 42},
-                    polygon,
-                    _values);
-        }
+        this->_values.reserve(experiment->Value * 4);
+        create(experiment->Value,
+                Triangle{Point{0, 0}, Point{0, 24}, Point{42, 0}},
+                Rectangle{Point{24, 42}, Point{42, 24}},
+                Circle{Point{0, 0}, 42},
+                polygon,
+                this->_values);
     }
 
     void tearDown() override
     {
-        _values.clear();
+        this->_values.clear();
     }
-    std::vector<T> _values;
 };
 
 template <typename T>
-struct CreateFixture : celero::TestFixture
+struct SortedFixture : Fixture<T>
 {
+    void setUp(const celero::TestFixture::ExperimentValue* experiment) override
+    {
+        ConvexPolygon polygon{{Point{0, 0},
+            Point{24, 0},
+            Point{24, 42},
+            Point{42, 42},
+            Point{66, 66},
+            Point{24, 66},
+            Point{0, 24},
+        }};
+        this->_values.reserve(experiment->Value * 4);
+        create_sorted(experiment->Value,
+                Triangle{Point{0, 0}, Point{0, 24}, Point{42, 0}},
+                Rectangle{Point{24, 42}, Point{42, 24}},
+                Circle{Point{0, 0}, 42},
+                polygon,
+                this->_values);
+    }
 
-    std::vector<std::shared_ptr<celero::TestFixture::ExperimentValue>> getExperimentValues() const override
-	{
-		std::vector<std::shared_ptr<celero::TestFixture::ExperimentValue>> problemSpace;
+    void tearDown() override
+    {
+        this->_values.clear();
+    }
+};
 
-		// ExperimentValues is part of the base class and allows us to specify
-		// some values to control various test runs to end up building a nice graph.
-		for(int64_t elements = 1024; elements <= int64_t(8192); elements *= 2)
-		{
-			problemSpace.push_back(std::make_shared<celero::TestFixture::ExperimentValue>(elements));
-		}
 
-		return problemSpace;
-	}
-
+template <typename T>
+struct CreateFixture : Fixture<T>
+{
     void onExperimentStart(const celero::TestFixture::ExperimentValue* experiment) override
     {
         ConvexPolygon polygon{{Point{0, 0},
@@ -415,55 +502,110 @@ struct CreateFixture : celero::TestFixture
             Point{24, 66},
             Point{0, 24},
         }};
+        this->_values.reserve(experiment->Value * 4);
         create(experiment->Value,
                 Triangle{Point{0, 0}, Point{0, 24}, Point{42, 0}},
                 Rectangle{Point{24, 42}, Point{42, 24}},
                 Circle{Point{0, 0}, 42},
                 polygon,
-                _values);
+                this->_values);
     }
 
     void onExperimentEnd() override
     {
-        _values.clear();
+        this->_values.clear();
     }
-    std::vector<T> _values;
 };
 
 template <typename T>
-using SortedScaleFixture = ScaleFixture<T, true>;
+struct CreateSorted : Fixture<T>
+{
+    void onExperimentStart(const celero::TestFixture::ExperimentValue* experiment) override
+    {
+        ConvexPolygon polygon{{Point{0, 0},
+            Point{24, 0},
+            Point{24, 42},
+            Point{42, 42},
+            Point{66, 66},
+            Point{24, 66},
+            Point{0, 24},
+        }};
+        this->_values.reserve(experiment->Value * 4);
+        create_sorted(experiment->Value,
+                Triangle{Point{0, 0}, Point{0, 24}, Point{42, 0}},
+                Rectangle{Point{24, 42}, Point{42, 24}},
+                Circle{Point{0, 0}, 42},
+                polygon,
+                this->_values);
+    }
 
-const int SamplesCount = 32;
-const int IterationsCount = 128;
+    void onExperimentEnd() override
+    {
+        this->_values.clear();
+    }
+};
 
-BASELINE_F(Scale, TaggedUnion, ScaleFixture<uni::Shape>, SamplesCount, IterationsCount)
+
+
+
+BASELINE_F(Scale, TaggedUnion, OperationFixture<uni::Shape>, SamplesCount, IterationsCount)
 {
     scale(_values, 2);
 }
 
-BENCHMARK_F(Scale, Variant, ScaleFixture<var::Shape>, SamplesCount, IterationsCount)
+BENCHMARK_F(Scale, Variant, OperationFixture<var::Shape>, SamplesCount, IterationsCount)
 {
     scale(_values, 2);
 }
 
-BENCHMARK_F(Scale, Visit, ScaleFixture<var::Shape>, SamplesCount, IterationsCount)
+BENCHMARK_F(Scale, Visit, OperationFixture<var::Shape>, SamplesCount, IterationsCount)
 {
     scale_visit(_values, 2);
 }
 
-BENCHMARK_F(Scale, SortedUnion, SortedScaleFixture<uni::Shape>, SamplesCount, IterationsCount)
+BENCHMARK_F(Scale, SortedUnion, SortedFixture<uni::Shape>, SamplesCount, IterationsCount)
 {
     scale(_values, 2);
 }
 
-BENCHMARK_F(Scale, SortedVariant, SortedScaleFixture<var::Shape>, SamplesCount, IterationsCount)
+BENCHMARK_F(Scale, SortedVariant, SortedFixture<var::Shape>, SamplesCount, IterationsCount)
 {
     scale(_values, 2);
 }
 
-BENCHMARK_F(Scale, SortedVisit, SortedScaleFixture<var::Shape>, SamplesCount, IterationsCount)
+BENCHMARK_F(Scale, SortedVisit, SortedFixture<var::Shape>, SamplesCount, IterationsCount)
 {
     scale_visit(_values, 2);
+}
+
+BASELINE_F(Perimeter, TaggedUnion, OperationFixture<uni::Shape>, SamplesCount, IterationsCount)
+{
+    celero::DoNotOptimizeAway(perimeter(_values));
+}
+
+BENCHMARK_F(Perimeter, Variant, OperationFixture<var::Shape>, SamplesCount, IterationsCount)
+{
+    celero::DoNotOptimizeAway(perimeter(_values));
+}
+
+BENCHMARK_F(Perimeter, Visit, OperationFixture<var::Shape>, SamplesCount, IterationsCount)
+{
+    celero::DoNotOptimizeAway(perimeter_visit(_values));
+}
+
+BENCHMARK_F(Perimeter, SortedUnion, SortedFixture<uni::Shape>, SamplesCount, IterationsCount)
+{
+    celero::DoNotOptimizeAway(perimeter(_values));
+}
+
+BENCHMARK_F(Perimeter, SortedVariant, SortedFixture<var::Shape>, SamplesCount, IterationsCount)
+{
+    celero::DoNotOptimizeAway(perimeter(_values));
+}
+
+BENCHMARK_F(Perimeter, SortedVisit, SortedFixture<var::Shape>, SamplesCount, IterationsCount)
+{
+    celero::DoNotOptimizeAway(perimeter_visit(_values));
 }
 
 
@@ -473,6 +615,16 @@ BASELINE_F(CreateShapes, TaggedUnion, CreateFixture<uni::Shape>, SamplesCount, I
 }
 
 BENCHMARK_F(CreateShapes, Variant, CreateFixture<var::Shape>, SamplesCount, IterationsCount)
+{
+    celero::DoNotOptimizeAway(_values);
+}
+
+BENCHMARK_F(CreateShapes, SortedUnion, CreateSorted<uni::Shape>, SamplesCount, IterationsCount)
+{
+    celero::DoNotOptimizeAway(_values);
+}
+
+BENCHMARK_F(CreateShapes, SortedVariant, CreateSorted<var::Shape>, SamplesCount, IterationsCount)
 {
     celero::DoNotOptimizeAway(_values);
 }

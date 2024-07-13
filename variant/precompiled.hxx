@@ -5,3 +5,5 @@
 
 #include <celero/Celero.h>
 
+#include "fixtures.hxx"
+
