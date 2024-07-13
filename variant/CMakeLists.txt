@@ -22,6 +22,7 @@ set(HEADER_FILES
 set(SOURCE_FILES
     variant.cxx
     shapes.cxx
+    virtual.cxx
     main.cxx
     ${HEADER_FILES}
 )
