@@ -1,0 +1,47 @@
+{
+    "version": 6,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 28,
+        "patch": 1
+    },
+    "configurePresets": [
+        {
+            "name": "clang-ninja-debug",
+            "hidden": false,
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/out/${presetName}",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "clang-ninja-release",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/out/${presetName}",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+            }
+        },
+        {
+            "name": "msvc-msbuild",
+            "hidden": false,
+            "generator": "Visual Studio 17 2022",
+            "binaryDir": "${sourceDir}/out/${presetName}"
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "clang-ninja-debug",
+            "configurePreset": "clang-ninja-debug"
+        },
+        {
+            "name": "clang-ninja-release",
+            "configurePreset": "clang-ninja-release"
+        },
+        {
+            "name": "msvc-msbuild",
+            "configurePreset": "msvc-msbuild"
+        }
+    ]
+}
