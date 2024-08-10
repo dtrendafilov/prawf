@@ -302,7 +302,7 @@ BENCHMARK_F(Perimeter, SortedVirtual, SortedFixture<ShapePtr>, SamplesCount, Ite
     celero::DoNotOptimizeAway(perimter(_values));
 }
 
-BENCHMARK_F(CreateShapes, SortedVariant, CreateFixture<ShapePtr>, SamplesCount, IterationsCount)
+BENCHMARK_F(CreateShapes, Virtual, CreateFixture<ShapePtr>, SamplesCount, IterationsCount)
 {
     celero::DoNotOptimizeAway(_values);
 }
