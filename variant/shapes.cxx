@@ -431,6 +431,152 @@ double perimeter(std::vector<uni::Shape>& container)
     return p;
 }
 
+Rectangle bbox(const uni::Shape& lhs, const uni::Shape& rhs)
+{
+    switch (lhs._type)
+    {
+        case uni::ShapeType::Triangle:
+        {
+            switch (rhs._type)
+            {
+                case uni::ShapeType::Triangle: return Rectangle{lhs._value._triangle.A, rhs._value._triangle.C};
+                case uni::ShapeType::Rectangle: return Rectangle{lhs._value._triangle.A, rhs._value._rectangle.BottomRight};
+                case uni::ShapeType::Circle: return Rectangle{lhs._value._triangle.A, rhs._value._circle.C};
+                case uni::ShapeType::ConvexPolygon: return Rectangle{lhs._value._triangle.A, rhs._value._polygon.Points.back()};
+            }
+        }
+        case uni::ShapeType::Rectangle:
+        {
+            switch (rhs._type)
+            {
+                case uni::ShapeType::Triangle: return Rectangle{lhs._value._rectangle.TopLeft, rhs._value._triangle.C};
+                case uni::ShapeType::Rectangle: return Rectangle{lhs._value._rectangle.TopLeft, rhs._value._rectangle.BottomRight};
+                case uni::ShapeType::Circle: return Rectangle{lhs._value._rectangle.TopLeft, rhs._value._circle.C};
+                case uni::ShapeType::ConvexPolygon: return Rectangle{lhs._value._rectangle.TopLeft, rhs._value._polygon.Points.back()};
+            }
+        }
+        case uni::ShapeType::Circle:
+        {
+            switch (rhs._type)
+            {
+                case uni::ShapeType::Triangle: return Rectangle{lhs._value._circle.C, rhs._value._triangle.C};
+                case uni::ShapeType::Rectangle: return Rectangle{lhs._value._circle.C, rhs._value._rectangle.BottomRight};
+                case uni::ShapeType::Circle: return Rectangle{lhs._value._circle.C, rhs._value._circle.C};
+                case uni::ShapeType::ConvexPolygon: return Rectangle{lhs._value._circle.C, rhs._value._polygon.Points.back()};
+            }
+        }
+        case uni::ShapeType::ConvexPolygon:
+        {
+            switch (rhs._type)
+            {
+                case uni::ShapeType::Triangle: return Rectangle{lhs._value._polygon.Points.front(), rhs._value._triangle.C};
+                case uni::ShapeType::Rectangle: return Rectangle{lhs._value._polygon.Points.front(), rhs._value._rectangle.BottomRight};
+                case uni::ShapeType::Circle: return Rectangle{lhs._value._polygon.Points.front(), rhs._value._circle.C};
+                case uni::ShapeType::ConvexPolygon: return Rectangle{lhs._value._polygon.Points.front(), rhs._value._polygon.Points.back()};
+            }
+        }
+    }
+}
+
+double bbox(std::vector<uni::Shape>& container)
+{
+    double p = 0;
+
+    for (auto& l : container)
+    {
+        for (auto& r : container)
+        {
+            p += bbox(l, r).perimeter();
+        }
+    }
+    return p;
+}
+
+struct MakeBBox
+{
+    Rectangle operator()(const Triangle& lhs, const Triangle& rhs) const
+    {
+        return Rectangle{lhs.A, rhs.C};
+    }
+    Rectangle operator()(const Triangle& lhs, const Rectangle& rhs) const
+    {
+        return Rectangle{lhs.A, rhs.BottomRight};
+    }
+    Rectangle operator()(const Triangle& lhs, const Circle& rhs) const
+    {
+        return Rectangle{lhs.A, rhs.C};
+    }
+
+    Rectangle operator()(const Triangle& lhs, const ConvexPolygon& rhs) const
+    {
+        return Rectangle{lhs.A, rhs.Points.back()};
+    }
+
+    Rectangle operator()(const Rectangle& lhs, const Triangle& rhs) const
+    {
+        return Rectangle {lhs.TopLeft, rhs.C};
+    }
+
+    Rectangle operator()(const Rectangle& lhs, const Rectangle& rhs) const
+    {
+        return Rectangle {lhs.TopLeft, rhs.BottomRight};
+    }
+    Rectangle operator()(const Rectangle& lhs, const Circle& rhs) const
+    {
+        return Rectangle {lhs.TopLeft, rhs.C};
+    }
+    Rectangle operator()(const Rectangle& lhs, const ConvexPolygon& rhs) const
+    {
+        return Rectangle {lhs.TopLeft, rhs.Points.back()};
+    }
+
+    Rectangle operator()(const Circle& lhs, const Triangle& rhs) const
+    {
+        return Rectangle {lhs.C, rhs.C};
+    }
+    Rectangle operator()(const Circle& lhs, const Rectangle& rhs) const
+    {
+        return Rectangle {lhs.C, rhs.BottomRight};
+    }
+    Rectangle operator()(const Circle& lhs, const Circle& rhs) const
+    {
+        return Rectangle {lhs.C, rhs.C};
+    }
+    Rectangle operator()(const Circle& lhs, const ConvexPolygon& rhs) const
+    {
+        return Rectangle {lhs.C, rhs.Points.back()};
+    }
+
+    Rectangle operator()(const ConvexPolygon& lhs, const Triangle& rhs) const
+    {
+        return Rectangle {lhs.Points.front(), rhs.C};
+    }
+    Rectangle operator()(const ConvexPolygon& lhs, const Rectangle& rhs) const
+    {
+        return Rectangle {lhs.Points.front(), rhs.BottomRight};
+    }
+    Rectangle operator()(const ConvexPolygon& lhs, const Circle& rhs) const
+    {
+        return Rectangle {lhs.Points.front(), rhs.C};
+    }
+    Rectangle operator()(const ConvexPolygon& lhs, const ConvexPolygon& rhs) const
+    {
+        return Rectangle {lhs.Points.front(), rhs.Points.back()};
+    }
+};
+
+double bbox_visit(std::vector<var::Shape>& container)
+{
+    double p = 0;
+    for (auto& l : container)
+    {
+        for (auto& r : container)
+        {
+            p += std::visit(MakeBBox{}, l, r).perimeter();
+        }
+    }
+    return p;
+}
 
 template <typename T>
 struct OperationFixture : Fixture<T>
@@ -627,6 +773,16 @@ BENCHMARK_F(CreateShapes, SortedUnion, CreateSorted<uni::Shape>, SamplesCount, I
 BENCHMARK_F(CreateShapes, SortedVariant, CreateSorted<var::Shape>, SamplesCount, IterationsCount)
 {
     celero::DoNotOptimizeAway(_values);
+}
+
+BASELINE_F(BBox, TaggedUnion, OperationFixture<uni::Shape>, SamplesCount, IterationsCount)
+{
+    celero::DoNotOptimizeAway(bbox(_values));
+}
+
+BENCHMARK_F(BBox, Visit, OperationFixture<var::Shape>, SamplesCount, IterationsCount)
+{
+    celero::DoNotOptimizeAway(bbox_visit(_values));
 }
 
 }
