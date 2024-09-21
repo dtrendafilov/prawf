@@ -8,6 +8,18 @@ else()
     add_compile_options(-Wall -Wextra -pedantic)
 endif()
 
+if (MSVC)
+    if (PGO_GENERATE)
+        add_compile_definitions(VARIANT_SMALL_TESTS)
+        add_compile_options(/GL)
+        add_link_options(/LTCG /GENPROFILE)
+    endif()
+    if (PGO_USE)
+        add_compile_options(/GL)
+        add_link_options(/LTCG /USEPROFILE)
+    endif()
+endif()
+
 set(CMAKE_COMPILE_WARNING_AS_ERROR Off)
 
 set(CMAKE_CXX_STANDARD 23)

@@ -254,9 +254,17 @@ struct SumFixture : celero::TestFixture
 	{
 		std::vector<std::shared_ptr<celero::TestFixture::ExperimentValue>> problemSpace;
 
-		// ExperimentValues is part of the base class and allows us to specify
-		// some values to control various test runs to end up building a nice graph.
-		for(int64_t elements = 1024; elements <= int64_t(65536); elements *= 2)
+#if defined(VARIANT_SMALL_TESTS)
+        int64_t start = 256;
+        int64_t limit = 512;
+#elif defined(NDEBUG)
+        int64_t start = 1024;
+        int64_t limit = 4096;
+#else
+        int64_t start = 256;
+        int64_t limit = 1025;
+#endif
+		for(int64_t elements = start; elements <= limit; elements *= 2)
 		{
 			problemSpace.push_back(std::make_shared<celero::TestFixture::ExperimentValue>(elements));
 		}
@@ -300,9 +308,17 @@ struct CreateFixture : celero::TestFixture
 	{
 		std::vector<std::shared_ptr<celero::TestFixture::ExperimentValue>> problemSpace;
 
-		// ExperimentValues is part of the base class and allows us to specify
-		// some values to control various test runs to end up building a nice graph.
-		for(int64_t elements = 1024; elements <= int64_t(4096); elements *= 2)
+#if defined(VARIANT_SMALL_TESTS)
+        int64_t start = 256;
+        int64_t limit = 512;
+#elif defined(NDEBUG)
+        int64_t start = 1024;
+        int64_t limit = 4096;
+#else
+        int64_t start = 256;
+        int64_t limit = 1025;
+#endif
+		for(int64_t elements = start; elements <= limit; elements *= 2)
 		{
 			problemSpace.push_back(std::make_shared<celero::TestFixture::ExperimentValue>(elements));
 		}

@@ -3,6 +3,8 @@
 #include <variant>
 #include <string>
 
+#include <celero/Celero.h>
+
 struct PointI
 {
     int x;
@@ -152,15 +154,30 @@ namespace uni
     };
 }
 
-const auto N = 10000000;
-
 template <typename C>
-void create(PointI vi, PointF vf, PointS vs, C& container)
+void create(int count, PointI vi, PointF vf, PointS vs, C& container)
 {
-    for (auto i = 0; i < N; ++i)
+    for (auto i = 0; i < count; ++i)
     {
         container.push_back(vi);
         container.push_back(vf);
+        container.push_back(vs);
+    }
+}
+
+template <typename C>
+void create_sorted(int count, PointI vi, PointF vf, PointS vs, C& container)
+{
+    for (auto i = 0; i < count; ++i)
+    {
+        container.push_back(vi);
+    }
+    for (auto i = 0; i < count; ++i)
+    {
+        container.push_back(vf);
+    }
+    for (auto i = 0; i < count; ++i)
+    {
         container.push_back(vs);
     }
 }
@@ -221,27 +238,134 @@ double sum(const std::vector<uni::PointValue>& container)
     return s;
 }
 
-int main(int argc, const char* argv[])
+
+template <typename T, bool sorted=false>
+struct SumFixture : celero::TestFixture
 {
-    std::cout << sizeof(var::PointValue) << std::endl;
-    std::cout << sizeof(uni::PointValue) << std::endl;
-    if (argc > 1)
+
+    std::vector<std::shared_ptr<celero::TestFixture::ExperimentValue>> getExperimentValues() const override
+	{
+		std::vector<std::shared_ptr<celero::TestFixture::ExperimentValue>> problemSpace;
+
+		// ExperimentValues is part of the base class and allows us to specify
+		// some values to control various test runs to end up building a nice graph.
+		for(int64_t elements = 1024; elements <= int64_t(65536); elements *= 2)
+		{
+			problemSpace.push_back(std::make_shared<celero::TestFixture::ExperimentValue>(elements));
+		}
+
+		return problemSpace;
+	}
+
+    void setUp(const celero::TestFixture::ExperimentValue* experiment) override
     {
-        std::vector<var::PointValue> v;
-        /* v.reserve(3*N); */
-        create(PointI{22, 42}, PointF{3.14, 2.89}, PointS{9.81, 2.53, "very long string needs allocation"}, v);
-        std::cout << sum(v) << std::endl;
-        /* std::cout << sum_visit(v) << std::endl; */
-        std::cout << std::hex << v.data() << ' ' << v.size() << std::endl;
+        _values.reserve(experiment->Value * 3);
+        if (sorted)
+        {
+            create_sorted(experiment->Value,
+                    PointI{22, 42},
+                    PointF{3.14, 2.89},
+                    PointS{9.81, 2.53, "very long string needs allocation"},
+                    _values);
+        }
+        else
+        {
+            create(experiment->Value,
+                    PointI{22, 42},
+                    PointF{3.14, 2.89},
+                    PointS{9.81, 2.53, "very long string needs allocation"},
+                    _values);
+        }
     }
-    else
+
+    void tearDown() override
     {
-        std::vector<uni::PointValue> v;
-        /* v.reserve(3*N); */
-        create(PointI{22, 42}, PointF{3.14, 2.89}, PointS{9.81, 2.53, "very long string needs allocation"}, v);
-        std::cout << sum(v) << std::endl;
-        std::cout << std::hex << v.data() << ' ' << v.size() << std::endl;
-    
+        _values.clear();
     }
-    return 0;
+    std::vector<T> _values;
+};
+
+template <typename T>
+struct CreateFixture : celero::TestFixture
+{
+
+    std::vector<std::shared_ptr<celero::TestFixture::ExperimentValue>> getExperimentValues() const override
+	{
+		std::vector<std::shared_ptr<celero::TestFixture::ExperimentValue>> problemSpace;
+
+		// ExperimentValues is part of the base class and allows us to specify
+		// some values to control various test runs to end up building a nice graph.
+		for(int64_t elements = 1024; elements <= int64_t(8192); elements *= 2)
+		{
+			problemSpace.push_back(std::make_shared<celero::TestFixture::ExperimentValue>(elements));
+		}
+
+		return problemSpace;
+	}
+
+    void onExperimentStart(const celero::TestFixture::ExperimentValue* experiment) override
+    {
+        /* _values.reserve(experiment->Value * 3); */
+        create(experiment->Value,
+                PointI{22, 42},
+                PointF{3.14, 2.89},
+                PointS{9.81, 2.53, "very long string needs allocation"},
+                _values);
+    }
+
+    void onExperimentEnd() override
+    {
+        _values.clear();
+    }
+    std::vector<T> _values;
+};
+
+template <typename T>
+using SortedSumFixture = SumFixture<T, true>;
+
+const int SamplesCount = 128;
+const int IterationsCount = 64;
+
+BASELINE_F(Sum, TaggedUnion, SumFixture<uni::PointValue>, SamplesCount, IterationsCount)
+{
+    celero::DoNotOptimizeAway(sum(_values));
 }
+
+BENCHMARK_F(Sum, Variant, SumFixture<var::PointValue>, SamplesCount, IterationsCount)
+{
+    celero::DoNotOptimizeAway(sum(_values));
+}
+
+BENCHMARK_F(Sum, Visit, SumFixture<var::PointValue>, SamplesCount, IterationsCount)
+{
+    celero::DoNotOptimizeAway(sum(_values));
+}
+
+BENCHMARK_F(Sum, SortedUnion, SortedSumFixture<uni::PointValue>, SamplesCount, IterationsCount)
+{
+    celero::DoNotOptimizeAway(sum(_values));
+}
+
+BENCHMARK_F(Sum, SortedVariant, SortedSumFixture<var::PointValue>, SamplesCount, IterationsCount)
+{
+    celero::DoNotOptimizeAway(sum(_values));
+}
+
+BENCHMARK_F(Sum, SortedVisit, SortedSumFixture<var::PointValue>, SamplesCount, IterationsCount)
+{
+    celero::DoNotOptimizeAway(sum(_values));
+}
+
+
+BASELINE_F(Create, TaggedUnion, CreateFixture<uni::PointValue>, SamplesCount, IterationsCount)
+{
+    celero::DoNotOptimizeAway(_values);
+}
+
+BENCHMARK_F(Create, Variant, CreateFixture<var::PointValue>, SamplesCount, IterationsCount)
+{
+    celero::DoNotOptimizeAway(_values);
+}
+
+
+CELERO_MAIN

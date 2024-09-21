@@ -24,10 +24,42 @@
             }
         },
         {
+            "name": "clang-ninja-pgo-gen",
+            "inherits": "clang-ninja-release",
+            "environment": {
+                "CFLAGS": "-fprofile-instr-generate",
+                "CXXFLAGS": "-fprofile-instr-generate"
+            }
+        },
+        {
+            "name": "clang-ninja-pgo-use",
+            "inherits": "clang-ninja-release",
+            "environment": {
+                "CFLAGS": "-fprofile-instr-use=${sourceDir}/code.profdata",
+                "CXXFLAGS": "-fprofile-instr-use=${sourceDir}/code.profdata"
+            }
+        },
+        {
             "name": "msvc-msbuild",
             "hidden": false,
             "generator": "Visual Studio 17 2022",
             "binaryDir": "${sourceDir}/out/${presetName}"
+        },
+        {
+            "name": "msvc-msbuild-pgo-gen",
+            "hidden": false,
+            "inherits": "msvc-msbuild",
+            "cacheVariables": {
+                "PGO_GENERATE": true
+            }
+        },
+        {
+            "name": "msvc-msbuild-pgo-use",
+            "hidden": false,
+            "inherits": "msvc-msbuild",
+            "cacheVariables": {
+                "PGO_USE": true
+            }
         }
     ],
     "buildPresets": [
@@ -40,8 +72,24 @@
             "configurePreset": "clang-ninja-release"
         },
         {
+            "name": "clang-ninja-pgo-gen",
+            "configurePreset": "clang-ninja-pgo-gen"
+        },
+        {
+            "name": "clang-ninja-pgo-use",
+            "configurePreset": "clang-ninja-pgo-use"
+        },
+        {
             "name": "msvc-msbuild",
             "configurePreset": "msvc-msbuild"
+        },
+        {
+            "name": "msvc-msbuild-pgo-gen",
+            "configurePreset": "msvc-msbuild-pgo-gen"
+        },
+        {
+            "name": "msvc-msbuild-pgo-use",
+            "configurePreset": "msvc-msbuild-pgo-use"
         }
     ]
 }
